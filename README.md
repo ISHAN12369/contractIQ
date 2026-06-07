@@ -6,6 +6,31 @@ Understand lease agreements, purchase deeds, and legal terms instantly—in plai
 
 ---
 
+## 📸 Screenshots
+
+<div align="center">
+  <img src="public/screenshots/chart_view.png" width="100%" alt="ContractIQ Benefits Dashboard" />
+  <p><em>Interactive Benefits & Ratio Audit Dashboard (alternating dark/light theme)</em></p>
+  
+  <br />
+  
+  <img src="public/screenshots/chat_view.png" width="100%" alt="ContractIQ AI Auditor Chat" />
+  <p><em>Widescreen morphing chat terminal with quick obligation templates</em></p>
+</div>
+
+---
+
+## 🏆 Why ContractIQ is Better
+
+Unlike generic PDF parsers or standard ChatGPT wrappers, **ContractIQ** is specifically optimized for real-world legal auditing and a premium user experience:
+
+- **10x Faster Audit Cycles (Relevance-focused)**: Instead of forcing you to read a 10,000-word contract, the viewer filters and lists **only** the key clauses related to identified benefits. Selecting any point instantly scrolls and highlights that exact clause in the contract body.
+- **Dynamic Morphing Interface**: The layout shifts fluidly. If you click on a quick auditor obligation topic, the options drawer collapses, and the chat console automatically expands into a full-width focus mode.
+- **Widescreen Screen Optimization**: Utilizes 95% of screen width to show graphs, text lists, and chat panels side-by-side, preventing continuous vertical scrolling.
+- **Mathematical Fairness Checking**: Computes the exact ratio of benefit values to ensure legal terms are not heavily weighted in favor of only one party (e.g. Landlord vs Tenant).
+
+---
+
 ## 🎨 Key Features
 
 - **wonjyou.studio Aesthetic**: Rich, high-contrast panels, uppercase kinetic typography, and unique mouse tracking effects.
