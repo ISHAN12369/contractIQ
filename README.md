@@ -9,13 +9,18 @@ Understand lease agreements, purchase deeds, and legal terms instantly—in plai
 ## 📸 Screenshots
 
 <div align="center">
-  <img src="public/screenshots/chart_view.png" width="100%" alt="ContractIQ Benefits Dashboard" />
-  <p><em>Interactive Benefits & Ratio Audit Dashboard (alternating dark/light theme)</em></p>
+  <img src="public/screenshots/intro_view.png" width="100%" alt="ContractIQ Intro Page" />
+  <p><em>Premium brutalist intro section with Outfit 900 typography</em></p>
   
   <br />
   
-  <img src="public/screenshots/chat_view.png" width="100%" alt="ContractIQ AI Auditor Chat" />
-  <p><em>Widescreen morphing chat terminal with quick obligation templates</em></p>
+  <img src="public/screenshots/benefits_view.png" width="100%" alt="ContractIQ Benefits Dashboard" />
+  <p><em>Widescreen dual-party benefits graph, links, and audit scores (rounded corners)</em></p>
+  
+  <br />
+  
+  <img src="public/screenshots/chat_view_full.png" width="100%" alt="ContractIQ AI Auditor Chat" />
+  <p><em>Widescreen AI chat terminal morphed into full screen mode</em></p>
 </div>
 
 ---
