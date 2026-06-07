@@ -1,3 +1,13 @@
+---
+title: ContractIQ
+emoji: 📉
+colorFrom: indigo
+colorTo: yellow
+sdk: docker
+pinned: false
+license: mit
+---
+
 # ContractIQ 📄✨
 
 > **ContractIQ** is a premium, high-fidelity real estate contract auditing tool. Redesigned with a bold, kinetic brutalist layout inspired by the `wonjyou.studio` design system, it alternates between pitch-black and warm cream themes with dynamic text masking, scrolling marquees, and a custom mouse cursor.
