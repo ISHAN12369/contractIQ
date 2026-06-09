@@ -12,7 +12,7 @@ license: mit
 
 > **ContractIQ** is a premium, high-fidelity real estate contract auditing tool. Redesigned with a bold, kinetic brutalist layout inspired by the `wonjyou.studio` design system, it alternates between pitch-black and warm cream themes with dynamic text masking, scrolling marquees, and a custom mouse cursor.
 
-Understand lease agreements, purchase deeds, and legal terms instantly—in plain English—using HuggingFace-powered AI.
+Understand lease agreements, purchase deeds, and legal terms instantly—in plain English—using a dual-AI pipeline: **Mistral-7B-Instruct** (HuggingFace) for chunk-level extraction and **LLaMA 3.1 8B** (Groq) for ultra-fast synthesis.
 
 ---
 
@@ -65,7 +65,8 @@ Unlike generic PDF parsers or standard ChatGPT wrappers, **ContractIQ** is speci
 | **Language** | TypeScript |
 | **Styling** | Vanilla CSS + Tailwind configuration |
 | **Icons** | Lucide React |
-| **AI Model** | Mistral-7B-Instruct (via HuggingFace Inference API) |
+| **Chunk Extraction** | Mistral-7B-Instruct-v0.3 (via HuggingFace Inference API) |
+| **Answer Generation** | LLaMA 3.1 8B Instant (via free Groq API) |
 | **Parsing Engine** | `pdf-parse` (PDF) & `mammoth` (DOCX) |
 
 ---
@@ -80,19 +81,26 @@ cd contractIQ
 npm install
 ```
 
-### 2. Run Locally
+### 2. Configure API Keys
+
+Copy `.env.example` to `.env` and fill in your API keys:
+
+```bash
+cp .env.example .env
+```
+
+- **HuggingFace API Key** (free): [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+- **Groq API Key** (free): [console.groq.com/keys](https://console.groq.com/keys)
+
+Once keys are configured in `.env`, users do **not** need to enter any API keys in the UI.
+
+### 3. Run Locally
 
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### 3. Add API Token
-
-1. Create a free API token on [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
-2. Click the **"API Key Setup »"** badge on the left navigation sidebar.
-3. Paste the token and click **Save**.
 
 ---
 
@@ -120,13 +128,14 @@ contractIQ/
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── chat/route.ts      # Queries HuggingFace
+│   │   │   ├── chat/route.ts      # Orchestrates chunk extraction (Mistral) → synthesis (Groq)
 │   │   │   └── extract/route.ts   # Parses PDF/DOCX uploads
 │   │   ├── page.tsx               # Main visual template
 │   │   ├── layout.tsx             # Document head & Outfit/Inter font imports
 │   │   └── globals.css            # Custom cursor, scrolling ticker, frosted glass styles
 │   └── lib/
-│       └── huggingface.ts         # LLM prompt builder
+│       ├── huggingface.ts         # Mistral-7B chunk extraction + text chunking utility
+│       └── groq.ts                # Groq API (LLaMA 3.1) synthesis & chat
 ├── package.json
 └── tailwind.config.js
 ```

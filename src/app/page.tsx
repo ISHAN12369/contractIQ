@@ -241,8 +241,9 @@ export default function HomePage() {
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
   const [cursorHovered, setCursorHovered] = useState(false);
 
-  /* ── API Key State ── */
+  /* ── API Key State (optional — server-side keys used by default) ── */
   const [apiKey, setApiKey]           = useState('');
+  const [groqApiKey, setGroqApiKey]   = useState('');
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [keySaved, setKeySaved]       = useState(false);
 
@@ -293,14 +294,18 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem('hf_api_key');
-    if (saved) {
-      setApiKey(saved);
-      setKeySaved(true);
+    const savedHf = localStorage.getItem('hf_api_key');
+    const savedGroq = localStorage.getItem('groq_api_key');
+    if (savedHf) {
+      setApiKey(savedHf);
     } else if (process.env.NEXT_PUBLIC_HF_API_KEY) {
       setApiKey(process.env.NEXT_PUBLIC_HF_API_KEY);
-      setKeySaved(true);
     }
+    if (savedGroq) {
+      setGroqApiKey(savedGroq);
+    }
+    // Server-side keys are always available, so mark as saved
+    setKeySaved(true);
     setHistoryState(loadHistory());
   }, []);
 
@@ -341,17 +346,20 @@ export default function HomePage() {
     ref.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  /* ── API Key Handlers ── */
+  /* ── API Key Handlers (optional overrides) ── */
   const saveKey = () => {
-    localStorage.setItem('hf_api_key', apiKey);
+    if (apiKey) localStorage.setItem('hf_api_key', apiKey);
+    if (groqApiKey) localStorage.setItem('groq_api_key', groqApiKey);
     setKeySaved(true);
     setShowKeyInput(false);
   };
 
   const clearKey = () => {
     localStorage.removeItem('hf_api_key');
+    localStorage.removeItem('groq_api_key');
     setApiKey('');
-    setKeySaved(false);
+    setGroqApiKey('');
+    setKeySaved(true); // Server keys still work
   };
 
   /* ── File Extraction ── */
@@ -451,7 +459,6 @@ export default function HomePage() {
   const sendMessage = async (question?: string) => {
     const q = (question || input).trim();
     if (!q || !docText || loading) return;
-    if (!apiKey) { setShowKeyInput(true); return; }
 
     setInput('');
     setError('');
@@ -463,7 +470,7 @@ export default function HomePage() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ docText, history: messages.slice(-8), question: q, apiKey }),
+        body: JSON.stringify({ docText, history: messages.slice(-8), question: q, apiKey, groqApiKey }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -479,7 +486,7 @@ export default function HomePage() {
 
   /* ── Benefits AI Hook ── */
   const runBenefitsAnalysis = async () => {
-    if (!docText || !apiKey || analyzingBenefits) return;
+    if (!docText || analyzingBenefits) return;
     setAnalyzingBenefits(true);
     setError('');
 
@@ -487,15 +494,21 @@ export default function HomePage() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ docText, history: [], question: BENEFITS_PROMPT, apiKey }),
+        body: JSON.stringify({ docText, history: [], question: BENEFITS_PROMPT, apiKey, groqApiKey }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
       const jsonMatch = data.answer.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as BenefitItem[];
-        setBenefits(parsed);
+        const parsed = JSON.parse(jsonMatch[0]) as any[];
+        const normalized = parsed.map((item: any) => ({
+          party: item.party || '',
+          benefit: item.benefit || item.obligation || item.description || item.finding || '',
+          clause: item.clause || item.clause_reference || item.reference || '',
+          score: typeof item.score === 'number' ? item.score : parseInt(String(item.score || 0), 10) || 5
+        })) as BenefitItem[];
+        setBenefits(normalized);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Benefits analysis failed');
@@ -597,7 +610,7 @@ export default function HomePage() {
           onMouseLeave={() => setCursorHovered(false)}
           onClick={() => setShowKeyInput(v => !v)}
         >
-          API Key Setup »
+          API Keys (Optional) »
         </div>
       </aside>
 
@@ -677,20 +690,9 @@ export default function HomePage() {
           >
             <History className="w-3.5 h-3.5 mr-1" /> History
           </button>
-          {keySaved ? (
-            <span className="hidden md:inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded px-3 py-1.5 pointer-events-auto">
-              <CheckCircle className="w-3 h-3" /> Key saved
-            </span>
-          ) : (
-            <button
-              onClick={() => setShowKeyInput(true)}
-              className="studio-btn pointer-events-auto text-xs px-4 py-2"
-              onMouseEnter={() => setCursorHovered(true)} 
-              onMouseLeave={() => setCursorHovered(false)}
-            >
-              <Key className="w-3.5 h-3.5 mr-1" /> Add Key
-            </button>
-          )}
+          <span className="hidden md:inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded px-3 py-1.5 pointer-events-auto">
+            <CheckCircle className="w-3 h-3" /> AI Ready
+          </span>
         </header>
 
         {/* API Key Modal Window */}
@@ -703,36 +705,48 @@ export default function HomePage() {
               >
                 <X className="w-5 h-5" />
               </button>
-              <h3 className="heading-display text-xl mb-4">HuggingFace Key setup</h3>
-              <p className="text-xs text-studio-gray mb-4">
-                To run AI analysis on your terms, enter a free HuggingFace API key. Obtain one from your{' '}
-                <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="underline text-studio-coral">
-                  Tokens panel
-                </a>.
+              <h3 className="heading-display text-xl mb-4">API Key Setup (Optional)</h3>
+              <p className="text-xs text-studio-gray mb-6">
+                Server-side keys are pre-configured. Only use this if you want to override with your own keys.
               </p>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
-                className="w-full text-sm border border-studio-coral bg-black/40 rounded px-3 py-2 text-white focus:outline-none mb-4"
-              />
+
+              <div className="mb-4">
+                <label className="text-[10px] uppercase tracking-wider font-bold text-studio-gray block mb-1.5">HuggingFace API Key (Mistral Chunking)</label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
+                  placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
+                  className="w-full text-sm border border-white/20 bg-black/40 rounded px-3 py-2 text-white focus:outline-none focus:border-studio-coral"
+                />
+                <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-[10px] underline text-studio-coral mt-1 inline-block">Get free HuggingFace key →</a>
+              </div>
+
+              <div className="mb-6">
+                <label className="text-[10px] uppercase tracking-wider font-bold text-studio-gray block mb-1.5">Groq API Key (LLaMA Generation)</label>
+                <input
+                  type="password"
+                  value={groqApiKey}
+                  onChange={e => setGroqApiKey(e.target.value)}
+                  placeholder="gsk_xxxxxxxxxxxxxxxxxxxx"
+                  className="w-full text-sm border border-white/20 bg-black/40 rounded px-3 py-2 text-white focus:outline-none focus:border-studio-coral"
+                />
+                <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-[10px] underline text-studio-coral mt-1 inline-block">Get free Groq key →</a>
+              </div>
+
               <div className="flex gap-2">
                 <button 
                   onClick={saveKey} 
-                  disabled={!apiKey} 
                   className="studio-btn text-xs"
                 >
-                  Save API Key
+                  Save Override Keys
                 </button>
-                {keySaved && (
-                  <button 
-                    onClick={clearKey} 
-                    className="studio-btn text-xs border-red-500 text-red-500 hover:bg-red-500/10"
-                  >
-                    Clear Key
-                  </button>
-                )}
+                <button 
+                  onClick={clearKey} 
+                  className="studio-btn text-xs border-red-500 text-red-500 hover:bg-red-500/10"
+                >
+                  Clear Overrides
+                </button>
               </div>
             </div>
           </div>
@@ -967,20 +981,17 @@ export default function HomePage() {
                     <p className="text-xs text-studio-gray mb-6">Analyze who benefits most from the contractual terms.</p>
                     <button
                       onClick={runBenefitsAnalysis}
-                      disabled={analyzingBenefits || !apiKey}
+                      disabled={analyzingBenefits}
                       className="studio-btn"
                       onMouseEnter={() => setCursorHovered(true)} 
                       onMouseLeave={() => setCursorHovered(false)}
                     >
                       {analyzingBenefits ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing Clauses...</>
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing Clauses (Mistral + Groq)...</>
                       ) : (
                         <><Sparkles className="w-4 h-4 mr-2" /> Launch AI Balance Analysis</>
                       )}
                     </button>
-                    {!apiKey && (
-                      <p className="text-[10px] text-red-400 mt-2">API key required. Click the &quot;API Key Setup&quot; badge in the sidebar.</p>
-                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-6">
@@ -1102,13 +1113,13 @@ export default function HomePage() {
                         value={input}
                         onChange={e => setInput(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                        placeholder={apiKey ? 'Ask about this contract...' : 'Save HuggingFace Key to begin...'}
+                        placeholder="Ask about this contract..."
                         className="flex-1 text-xs px-3 py-2 bg-white border border-black/10 focus:border-studio-coral rounded focus:outline-none text-dark-text"
-                        disabled={loading || !apiKey}
+                        disabled={loading}
                       />
                       <button
                         onClick={() => sendMessage()}
-                        disabled={!input.trim() || loading || !apiKey}
+                        disabled={!input.trim() || loading}
                         className="studio-btn light-btn !px-4 !py-2 text-xs"
                         onMouseEnter={() => setCursorHovered(true)} 
                         onMouseLeave={() => setCursorHovered(false)}
