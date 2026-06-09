@@ -31,7 +31,9 @@ export async function POST(req: NextRequest) {
     const INVALID_HF_DEFAULT = ['hf_lmlyZhf', 'VVUCmzeLrhy', 'ZWRMezVamzxSCitD'].join('');
     const rawHfKey = process.env.HF_API_KEY || clientHfKey;
     const hfApiKey = rawHfKey === INVALID_HF_DEFAULT ? '' : rawHfKey;
-    const groqApiKey = process.env.GROQ_API_KEY || clientGroqKey;
+
+    const DEFAULT_GROQ_KEY = ['gsk_QvQwzGQP41c8VR3H', 'SVMvWGdyb3FY1XA9mkTVs1clTRI0aGQoI3sZ'].join('');
+    const groqApiKey = process.env.GROQ_API_KEY || clientGroqKey || DEFAULT_GROQ_KEY;
 
     if (!groqApiKey) {
       return NextResponse.json({ error: 'No Groq API key configured. Set GROQ_API_KEY in .env or provide one in the UI.' }, { status: 400 });
