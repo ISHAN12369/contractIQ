@@ -11,25 +11,27 @@ license: mit
 # ContractIQ 📄✨
 
 > **ContractIQ** is a premium, high-fidelity real estate contract auditing tool. Redesigned with a bold, kinetic brutalist layout inspired by the `wonjyou.studio` design system, it alternates between pitch-black and warm cream themes with dynamic text masking, scrolling marquees, and a custom mouse cursor.
+>
+> 🚀 **Live Demo**: [https://contract-iq-theta.vercel.app/](https://contract-iq-theta.vercel.app/)
 
-Understand lease agreements, purchase deeds, and legal terms instantly—in plain English—using a dual-AI pipeline: **Mistral-7B-Instruct** (HuggingFace) for chunk-level extraction and **LLaMA 3.1 8B** (Groq) for ultra-fast synthesis.
+Understand lease agreements, purchase deeds, and legal terms instantly—in plain English—using a dual-AI pipeline: **Mistral-7B-Instruct** (HuggingFace) for chunk-level extraction and **LLaMA 4 Scout** (Groq) for ultra-fast synthesis.
 
 ---
 
 ## 📸 Screenshots
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/ISHAN12369/contractIQ/screenshots/public/screenshots/intro_view.png" width="100%" alt="ContractIQ Intro Page" />
+  <img src="public/screenshots/intro_view.png" width="100%" alt="ContractIQ Intro Page" />
   <p><em>Premium brutalist intro section with Outfit 900 typography</em></p>
   
   <br />
   
-  <img src="https://raw.githubusercontent.com/ISHAN12369/contractIQ/screenshots/public/screenshots/benefits_view.png" width="100%" alt="ContractIQ Benefits Dashboard" />
+  <img src="public/screenshots/benefits_view.png" width="100%" alt="ContractIQ Benefits Dashboard" />
   <p><em>Widescreen dual-party benefits graph, links, and audit scores (rounded corners)</em></p>
   
   <br />
   
-  <img src="https://raw.githubusercontent.com/ISHAN12369/contractIQ/screenshots/public/screenshots/chat_view_full.png" width="100%" alt="ContractIQ AI Auditor Chat" />
+  <img src="public/screenshots/chat_view.png" width="100%" alt="ContractIQ AI Auditor Chat" />
   <p><em>Widescreen AI chat terminal morphed into full screen mode</em></p>
 </div>
 
