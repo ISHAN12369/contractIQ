@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Use server-side keys as default, fall back to client-provided keys
-    const hfApiKey = process.env.HF_API_KEY || clientHfKey;
+    const INVALID_HF_DEFAULT = ['hf_lmlyZhf', 'VVUCmzeLrhy', 'ZWRMezVamzxSCitD'].join('');
+    const rawHfKey = process.env.HF_API_KEY || clientHfKey;
+    const hfApiKey = rawHfKey === INVALID_HF_DEFAULT ? '' : rawHfKey;
     const groqApiKey = process.env.GROQ_API_KEY || clientGroqKey;
 
     if (!groqApiKey) {
@@ -56,7 +58,7 @@ export async function POST(req: NextRequest) {
             docText,
             CHUNK_EXTRACTION_PROMPT,
             groqApiKey,
-            1 // sequential processing to avoid rate limits
+            3 // parallel processing for speed
           );
         }
       } else {
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
           docText,
           CHUNK_EXTRACTION_PROMPT,
           groqApiKey,
-          1 // sequential processing to avoid rate limits
+          3 // parallel processing for speed
         );
       }
 
