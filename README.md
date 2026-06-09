@@ -57,6 +57,67 @@ Unlike generic PDF parsers or standard ChatGPT wrappers, **ContractIQ** is speci
 
 ---
 
+## 🔍 AI Pipeline & Flowcharts (Preprocessing & Chunking)
+
+ContractIQ uses a high-performance, multi-layered processing pipeline to parse, segment, filter, and extract insights from large legal contracts in under 3 seconds. Below is the end-to-end flowchart of the preprocessing, semantic chunking, context pruning, and concurrent extraction process.
+
+### 1. Document Preprocessing & Text Extraction Flow
+Converts raw binary/text files into clean normalized string representations in memory:
+```mermaid
+graph TD
+    A[User Uploads File] --> B{File Format?}
+    B -->|PDF| C[pdf-parse Engine]
+    B -->|DOCX| D[mammoth Engine]
+    B -->|TXT / MD| E[UTF-8 Buffer Reader]
+    C --> F[Raw Text Extracted]
+    D --> F
+    E --> F
+    F --> G[Clean Whitespaces & Count Characters]
+    G --> H[Store in Next.js Server / React State]
+```
+
+### 2. Semantic Chunking & Overlapping Windows
+Segments the raw contract text into context-retaining blocks using a sliding window:
+```mermaid
+graph TD
+    A[Raw Text String] --> B[Apply Sliding Window]
+    B --> C[Window Size: 4,000 Chars]
+    B --> D[Overlap Size: 600 Chars]
+    C & D --> E[Generate Overlapping Chunk Array]
+    E --> F[Scoring Engine: Legal Density Check]
+    F --> G["Calculate term frequency of: benefit, obligation, right, shall, breach, penalty, liability"]
+    G --> H[Assign Density Score to each Chunk]
+```
+
+### 3. Relevance Filtering & Context Pruning
+Filters and sorts chunks to stay well within Groq rate limits and process only legal-dense clauses:
+```mermaid
+graph TD
+    A[Scored Chunk Array] --> B[Sort Chunks by Density Score Descending]
+    B --> C[Prune: Retain only Top 3 Dense Chunks]
+    C --> D[Re-sort selected Chunks by Original Index]
+    D --> E[Preserve Chronological Contract Context]
+    E --> F[Ready for Parallel LLM Extraction]
+```
+
+### 4. Parallel Insights Extraction & JSON Synthesis
+Runs batch execution on Groq LLaMA 4 Scout, compiles the results, and normalizes findings:
+```mermaid
+graph TD
+    A[Top 3 Selected Chunks] --> B[Batch Execution]
+    B --> C[Extract findings in Parallel - Concurrency: 3]
+    C -->|Query 1| D[Chunk 1 Extractions]
+    C -->|Query 2| E[Chunk 2 Extractions]
+    C -->|Query 3| F[Chunk 3 Extractions]
+    D & E & F --> G[Combine & Aggregate Raw Lines]
+    G --> H[Synthesize Aggregated Findings - Groq LLaMA 4 Scout]
+    H --> I[Output Raw JSON Array]
+    I --> J[Post-processing: Normalize Keys]
+    J -->|obligation/description -> benefit| K[Clean Scorecard React State]
+```
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
@@ -65,8 +126,8 @@ Unlike generic PDF parsers or standard ChatGPT wrappers, **ContractIQ** is speci
 | **Language** | TypeScript |
 | **Styling** | Vanilla CSS + Tailwind configuration |
 | **Icons** | Lucide React |
-| **Chunk Extraction** | Mistral-7B-Instruct-v0.3 (via HuggingFace Inference API) |
-| **Answer Generation** | LLaMA 3.1 8B Instant (via free Groq API) |
+| **Chunk Extraction** | Mistral-7B-Instruct-v0.3 (HuggingFace) / LLaMA 4 Scout (Groq fallback) |
+| **Answer Generation** | LLaMA 4 Scout 17B (via Groq API) |
 | **Parsing Engine** | `pdf-parse` (PDF) & `mammoth` (DOCX) |
 
 ---
