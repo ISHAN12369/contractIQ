@@ -24,12 +24,12 @@ import shutil
 
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_chroma import Chroma
 from langchain_groq import ChatGroq
 
 CHROMA_DIR = "chroma_db"
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # free, runs locally, no API key
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # free, runs locally, ONNX-optimized for low memory
 GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 # ── Lazy singletons so the embedding model & LLM client are only created once ──
@@ -37,10 +37,10 @@ GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 _embeddings = None
 
 
-def get_embeddings() -> HuggingFaceEmbeddings:
+def get_embeddings() -> FastEmbedEmbeddings:
     global _embeddings
     if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+        _embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL, threads=1)
     return _embeddings
 
 

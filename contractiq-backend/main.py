@@ -29,19 +29,9 @@ load_dotenv()
 
 app = FastAPI(title="ContractIQ RAG Backend")
 
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "https://contract-iq-theta.vercel.app",
-]
-
-# Also allow any custom origin set via env (e.g. preview deploys)
-_extra = os.environ.get("ALLOWED_ORIGIN")
-if _extra:
-    ALLOWED_ORIGINS.append(_extra)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
