@@ -54,6 +54,10 @@ Include 3-5 benefits per party. The score should be 1-10 indicating how signific
 const MAX_HISTORY = 10;
 const STORAGE_KEY = 'contractiq_history';
 
+// Python/FastAPI + LangChain RAG backend (see /contractiq-backend).
+// Handles real embedding + vector-store-backed chat. Falls back to localhost for local dev.
+const RAG_API_URL = process.env.NEXT_PUBLIC_RAG_API_URL || 'http://localhost:8000';
+
 /* ─── Helpers ─── */
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -256,6 +260,11 @@ export default function HomePage() {
   const [extracting, setExtracting]   = useState(false);
   const [extractError, setExtractError] = useState('');
 
+  /* ── RAG Backend State (Python/FastAPI + LangChain + Chroma) ── */
+  const [docId, setDocId]             = useState('');       // vector-store collection id for this doc
+  const [ragIndexing, setRagIndexing] = useState(false);     // true while embedding is in progress
+  const [ragError, setRagError]       = useState('');        // non-fatal: chat-only backend issue
+
   /* ── Chat State ── */
   const [messages, setMessages]       = useState<Message[]>([]);
   const [input, setInput]             = useState('');
@@ -363,11 +372,31 @@ export default function HomePage() {
   };
 
   /* ── File Extraction ── */
+  /**
+   * Ingest a file into the Python/FastAPI + LangChain RAG backend: parses it,
+   * chunks it, embeds it locally (HuggingFace embeddings), and stores it in a
+   * persisted Chroma collection. Returns the doc_id used for all later /chat calls.
+   *
+   * This is separate from /api/extract (Next.js) below — that route still handles
+   * getting text on-screen for the contract viewer & benefits chart. This call is
+   * only responsible for making the document queryable via real vector search.
+   */
+  const ingestToRagBackend = useCallback(async (file: File): Promise<string> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${RAG_API_URL}/upload`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || data.error || 'RAG backend ingestion failed');
+    return data.doc_id as string;
+  }, []);
+
   const handleFile = useCallback(async (file: File) => {
     setExtractError('');
     setExtracting(true);
     setDocText('');
     setDocName('');
+    setDocId('');
+    setRagError('');
     const fd = new FormData();
     fd.append('file', file);
     try {
@@ -397,33 +426,69 @@ export default function HomePage() {
       setTimeout(() => scrollTo(benefitsRef), 500);
     } catch (e: unknown) {
       setExtractError(e instanceof Error ? e.message : 'Extraction failed');
-    } finally {
       setExtracting(false);
+      return;
     }
-  }, []);
+    setExtracting(false);
 
-  const handlePasteLoad = () => {
+    // Ingest into the RAG backend in the background so chat becomes available
+    // as soon as embedding finishes, without blocking the text preview above.
+    setRagIndexing(true);
+    try {
+      const id = await ingestToRagBackend(file);
+      setDocId(id);
+    } catch (e: unknown) {
+      setRagError(
+        e instanceof Error
+          ? `Chat backend unavailable: ${e.message}`
+          : 'Chat backend unavailable. Is the FastAPI server running?'
+      );
+    } finally {
+      setRagIndexing(false);
+    }
+  }, [ingestToRagBackend]);
+
+  const handlePasteLoad = async () => {
     if (!pasteText.trim()) return;
-    setDocText(pasteText.trim());
+    const text = pasteText.trim();
+    setDocText(text);
     setDocName('Pasted document');
-    setDocChars(pasteText.length);
+    setDocChars(text.length);
     setMessages([]);
     setBenefits([]);
     setExtractError('');
+    setDocId('');
+    setRagError('');
 
     const newDoc: StoredDoc = {
       id: generateId(),
       name: 'Pasted document',
       date: new Date().toLocaleDateString(),
-      chars: pasteText.length,
-      preview: pasteText.slice(0, 150),
-      fullText: pasteText.trim(),
+      chars: text.length,
+      preview: text.slice(0, 150),
+      fullText: text,
     };
     const updated = [newDoc, ...loadHistory()].slice(0, MAX_HISTORY);
     saveHistory(updated);
     setHistoryState(updated);
 
     setTimeout(() => scrollTo(benefitsRef), 500);
+
+    // The RAG backend only accepts files, so wrap the pasted text as a .txt file.
+    setRagIndexing(true);
+    try {
+      const file = new File([text], 'pasted-document.txt', { type: 'text/plain' });
+      const id = await ingestToRagBackend(file);
+      setDocId(id);
+    } catch (e: unknown) {
+      setRagError(
+        e instanceof Error
+          ? `Chat backend unavailable: ${e.message}`
+          : 'Chat backend unavailable. Is the FastAPI server running?'
+      );
+    } finally {
+      setRagIndexing(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -433,7 +498,7 @@ export default function HomePage() {
     if (file) handleFile(file);
   };
 
-  const loadFromHistory = (doc: StoredDoc) => {
+  const loadFromHistory = async (doc: StoredDoc) => {
     setDocText(doc.fullText);
     setDocName(doc.name);
     setDocChars(doc.chars);
@@ -441,7 +506,28 @@ export default function HomePage() {
     setBenefits([]);
     setHighlightClause(null);
     setShowHistory(false);
+    setDocId('');
+    setRagError('');
     setTimeout(() => scrollTo(benefitsRef), 300);
+
+    // Documents loaded from local history predate this doc's RAG doc_id, so
+    // re-ingest the stored text into the vector store to get a fresh doc_id.
+    setRagIndexing(true);
+    try {
+      const file = new File([doc.fullText], doc.name.endsWith('.txt') ? doc.name : `${doc.name}.txt`, {
+        type: 'text/plain',
+      });
+      const id = await ingestToRagBackend(file);
+      setDocId(id);
+    } catch (e: unknown) {
+      setRagError(
+        e instanceof Error
+          ? `Chat backend unavailable: ${e.message}`
+          : 'Chat backend unavailable. Is the FastAPI server running?'
+      );
+    } finally {
+      setRagIndexing(false);
+    }
   };
 
   const deleteFromHistory = (id: string) => {
@@ -455,10 +541,26 @@ export default function HomePage() {
     setHistoryState([]);
   };
 
-  /* ── Chat Functionality ── */
+  /* ── Chat Functionality ──
+   * Now backed by the Python/FastAPI + LangChain RAG server (see /contractiq-backend):
+   * real chunking + local embeddings + Chroma similarity search, instead of resending
+   * the full docText and doing keyword-match "RAG" on every message.
+   * Benefits analysis (below) is intentionally left on the old Next.js /api/chat route —
+   * the Python backend only implements retrieval-QA chat for now, not the
+   * chunk-extract-then-synthesize benefits pipeline.
+   */
   const sendMessage = async (question?: string) => {
     const q = (question || input).trim();
     if (!q || !docText || loading) return;
+
+    if (!docId) {
+      setError(
+        ragIndexing
+          ? 'Still indexing this document for chat — try again in a few seconds.'
+          : ragError || 'Document is not indexed for chat yet. Try re-uploading it.'
+      );
+      return;
+    }
 
     setInput('');
     setError('');
@@ -467,13 +569,17 @@ export default function HomePage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(`${RAG_API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ docText, history: messages.slice(-8), question: q, apiKey, groqApiKey }),
+        body: JSON.stringify({
+          doc_id: docId,
+          question: q,
+          history: messages.slice(-8).map(m => ({ role: m.role, content: m.content })),
+        }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.detail || data.error || 'RAG backend error');
       setMessages(prev => [...prev, { role: 'assistant', content: data.answer, ts: Date.now() }]);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
@@ -486,18 +592,27 @@ export default function HomePage() {
 
   /* ── Benefits AI Hook ── */
   const runBenefitsAnalysis = async () => {
-    if (!docText || analyzingBenefits) return;
+    if (!docId) {
+      setError(
+        ragIndexing
+          ? 'Still indexing this document — try again in a few seconds.'
+          : ragError || 'Document is not indexed yet. Try re-uploading it.'
+      );
+      return;
+    }
+    if (analyzingBenefits) return;
+    
     setAnalyzingBenefits(true);
     setError('');
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(`${RAG_API_URL}/benefits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ docText, history: [], question: BENEFITS_PROMPT, apiKey, groqApiKey }),
+        body: JSON.stringify({ doc_id: docId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.detail || data.error || 'RAG backend error');
 
       const jsonMatch = data.answer.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
@@ -1056,7 +1171,24 @@ export default function HomePage() {
 
           <div className="z-10 max-w-[95%] w-full mx-auto">
             <span className="text-xs font-bold tracking-widest text-studio-coral uppercase block mb-2">Dialogue terminal</span>
-            <h2 className="heading-display dark-text text-3xl sm:text-5xl mb-8">RISK CHAT</h2>
+            <h2 className="heading-display dark-text text-3xl sm:text-5xl mb-2">RISK CHAT</h2>
+
+            {docLoaded && ragIndexing && (
+              <p className="text-xs text-studio-gray mb-6 flex items-center gap-1.5">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Indexing document for chat (embedding + vector store)...
+              </p>
+            )}
+            {docLoaded && !ragIndexing && ragError && (
+              <p className="text-xs text-red-600 mb-6 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5" /> {ragError}
+              </p>
+            )}
+            {docLoaded && !ragIndexing && !ragError && docId && (
+              <p className="text-xs text-green-700 mb-6 flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5" /> Document indexed — chat is backed by real vector search.
+              </p>
+            )}
+            {!docLoaded && <div className="mb-8" />}
 
             {!docLoaded ? (
               <div className="studio-card light-card p-8 text-center opacity-65">

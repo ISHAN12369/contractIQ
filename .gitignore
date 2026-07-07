@@ -1,16 +1,8 @@
-.next/
-node_modules/
-.env
-.env.local
-.env*.local
-*.log
-.DS_Store
-Thumbs.db
 
-# Python backend
-__pycache__/
-*.pyc
-chroma_db/
-uploads/
-venv/
-.venv/
+# Backend
+contractiq-backend/__pycache__/
+contractiq-backend/chroma_db/
+contractiq-backend/uploads/
+contractiq-backend/.env
+
+.env

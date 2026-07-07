@@ -23,7 +23,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from rag_pipeline import delete_document, get_answer, ingest_document
+from rag_pipeline import delete_document, get_answer, ingest_document, analyze_benefits
 
 load_dotenv()
 
@@ -88,6 +88,21 @@ async def chat(req: ChatRequest):
         raise HTTPException(400, "Question cannot be empty.")
     try:
         return get_answer(req.doc_id, req.question, req.history)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+class BenefitsRequest(BaseModel):
+    doc_id: str
+
+
+@app.post("/benefits")
+async def benefits(req: BenefitsRequest):
+    try:
+        result = analyze_benefits(req.doc_id)
+        return {"answer": result}
     except ValueError as e:
         raise HTTPException(404, str(e))
     except Exception as e:

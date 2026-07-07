@@ -172,3 +172,76 @@ def get_answer(doc_id: str, question: str, history: list | None = None, k: int =
     response = get_llm().invoke(messages)
 
     return {"answer": response.content, "sources": sources}
+
+
+def analyze_benefits(doc_id: str) -> str:
+    """Run the chunk-extract-then-synthesize pipeline to identify benefits and obligations."""
+    vectorstore = _get_vectorstore(doc_id)
+    
+    # Retrieve top 5 most relevant chunks to benefits and obligations
+    query = "benefits obligations rights liabilities penalties"
+    results = vectorstore.similarity_search(query, k=5)
+    
+    CHUNK_EXTRACTION_PROMPT = """Extract ALL benefits, obligations, and key clauses from this contract section for EACH party involved.
+For each item found, provide:
+- The party name (e.g., Landlord, Tenant, Buyer, Seller)
+- A brief description of the benefit or obligation
+- The exact clause text or section reference
+- A significance score from 1-10
+
+Format each finding as a line like: PARTY | BENEFIT_DESCRIPTION | CLAUSE_REFERENCE | SCORE
+If this section contains no relevant benefits or obligations, respond with NO_RELEVANT_INFO.
+
+--- DOCUMENT CHUNK ---
+{chunk}
+--- END CHUNK ---"""
+    
+    llm = get_llm()
+    chunk_results = []
+    
+    # Process sequentially to avoid free-tier rate limits on Groq
+    for doc in results:
+        messages = [
+            {"role": "system", "content": "You are a legal document analyst specialized in extracting structured information from contract sections."},
+            {"role": "user", "content": CHUNK_EXTRACTION_PROMPT.format(chunk=doc.page_content)}
+        ]
+        try:
+            resp = llm.invoke(messages)
+            if "NO_RELEVANT_INFO" not in resp.content:
+                chunk_results.append(resp.content)
+        except Exception as e:
+            print(f"Warning: Failed to extract from chunk: {e}")
+            
+    if not chunk_results:
+        return "[]"
+        
+    aggregated_extractions = "\n\n---\n\n".join(chunk_results)
+    
+    SYNTHESIS_PROMPT = f"""You have received raw extracted benefits and obligations from multiple sections of a legal contract. 
+Your job is to synthesize these into a clean, deduplicated JSON array.
+
+Here are the raw extractions from the document analysis:
+
+{aggregated_extractions}
+
+Now produce the final output as a JSON array with the following format (and nothing else before or after the JSON):
+[
+  {{"party": "Party A (use actual name from document)", "benefit": "Brief benefit description", "clause": "The exact clause text or section reference", "score": 8}},
+  {{"party": "Party B (use actual name from document)", "benefit": "Brief benefit description", "clause": "The exact clause text or section reference", "score": 7}}
+]
+
+Rules:
+- Include 3-5 benefits per party
+- Deduplicate similar benefits across chunks
+- Use actual party names from the document
+- Score should be 1-10 indicating significance
+- Each item MUST use the exact key "benefit" (do NOT use keys like "obligation" or "description" for the description field; put all findings under the "benefit" key)
+- Ensure the JSON is valid and parseable"""
+
+    synthesis_messages = [
+        {"role": "system", "content": "You are a legal contract analyst. Produce only valid JSON output."},
+        {"role": "user", "content": SYNTHESIS_PROMPT}
+    ]
+    
+    final_response = llm.invoke(synthesis_messages)
+    return final_response.content
